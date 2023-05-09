@@ -31,9 +31,11 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bookbrowser:latest
+          tags:
+            - atheken/bookbrowser:latest
         
       #      - name: Log in to the Container registry
 #        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
