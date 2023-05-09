@@ -16,29 +16,31 @@
 else
 {
     <table class="table">
-        <thead>
+    <thead>
         <tr>
             <th></th>
             <th>Title</th>
             <th>Publish Date</th>
         </tr>
-        </thead>
-        <tbody>
+    </thead>
+    <tbody>
         @foreach (var book in _books)
-        {
-            <tr>
-                <td><img src="./api/books/@book.Id/cover" style="max-width: 50px;"/></td>
-                <td>@book.Title<br/>
-                    @String.Join(", ", book.Authors.Select(k=>k.Name))</td>
-                <td>@book.Pubdate</td>
-            </tr>
-        }
+            {
+                <tr>
+                    <td><img src="./api/books/@book.Id/cover" style="max-width: 50px;" /></td>
+                    <td>@book.Title<br />
+                        @String.Join(", ", book.Authors.Select(k=>k.Name))</td>
+                    <td>@book.Pubdate</td>
+                </tr>
+            }
         </tbody>
     </table>
     <div class="text-center">
-        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Math.Max(Offset - 1, 0), ["limit"] = Limit})" target="_self">&lt;</a>
+        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Math.Max(Offset - 1, 0), ["limit"] = Limit})"
+            target="_self" class="btn">&lt;</a>
         Showing @(Offset * Limit) - @((Offset + 1) * Limit) of @_count books
-        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Offset + 1, ["limit"] = Limit})" target="_self">&gt;</a>
+        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Offset + 1, ["limit"] = Limit})"
+            target="_self" class="btn">&gt;</a>
     </div>
 }
 
@@ -54,11 +56,11 @@ else
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
-        
-        Limit = Math.Min(20, Math.Max(Limit, 20));
+
+        Limit = Math.Min(200, Math.Max(Limit, 20));
         Offset = Math.Max(0, Offset);
         (_count, _books) = await BookService.GetBooks(Offset * Limit, Limit);
-        
+
     }
 
     private IEnumerable<Book>? _books;
