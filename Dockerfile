@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:7.0.203-alpine3.17 AS builder
 WORKDIR /build
 COPY ./src/ ./src
-COPY ./test ./test
+COPY ./tests ./tests
 COPY ./*.sln ./
 WORKDIR /build
 RUN dotnet test
