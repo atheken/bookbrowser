@@ -27,10 +27,15 @@ builder.Services.AddServerSideBlazor();
 
 builder.Services.AddPooledDbContextFactory<MetadataContext>(k =>
 {
-    k.UseSqlite($"Data Source={Path.Join(config.CalibreLibraryPath, "metadata.db")}");
+    k.UseSqlite($"Data Source={Path.Join(config.CalibreLibraryPath, "metadata.db")}")
+        .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
 });
 
-builder.Services.AddSingleton<ContextFactory>(f => k => f.GetService<IDbContextFactory<MetadataContext>>()!.CreateDbContext());
+builder.Services.AddSingleton<ContextFactory>(f =>
+    k =>
+    {
+        return f.GetService<IDbContextFactory<MetadataContext>>().CreateDbContext();
+    });
 
 builder.Services.AddSingleton<BookListingService>();
 
@@ -48,10 +53,5 @@ app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
 app.MapControllers();
-
-app.Map("/api/books/{bookid:long}/cover", (long bookid) =>
-{
-    
-});
 
 app.Run();

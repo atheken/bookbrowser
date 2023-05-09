@@ -1,3 +1,46 @@
 ﻿@page "/"
+@using BookBrowser.Models
+@inject BookListingService BookService
 
-<PageTitle>Booksbrowser</PageTitle>
+<PageTitle>Books</PageTitle>
+
+<h1>Top Books</h1>
+
+@if (_books == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+        <tr>
+            <th></th>
+            <th>Title</th>
+            <th>Publish Date</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var book in _books)
+        {
+            <tr>
+                <td><img src="./api/books/@book.Id/cover" style="max-width: 50px;"/></td>
+                <td>@book.Title<br/>
+                    @String.Join(", ", book.Authors.Select(k=>k.Name))</td>
+                <td>@book.Pubdate</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    <div class="text-center">@_count books</div>
+}
+
+@code {
+    private IEnumerable<Book>? _books;
+    private int _count = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        (_count, _books) = await BookService.GetBooks();
+    }
+}

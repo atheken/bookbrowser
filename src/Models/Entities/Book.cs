@@ -28,5 +28,7 @@ public partial class Book
 
     public bool? HasCover { get; set; }
 
-    public DateTime? LastModified { get; set; } = null!;
+    public DateTime? LastModified { get; set; }
+
+    public List<Author> Authors { get; set; } = new();
 }

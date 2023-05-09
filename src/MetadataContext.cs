@@ -23,8 +23,6 @@ public partial class MetadataContext : DbContext
 
     public virtual DbSet<Book> Books { get; set; }
 
-    public virtual DbSet<BooksAuthorsLink> BooksAuthorsLinks { get; set; }
-
     public virtual DbSet<BooksLanguagesLink> BooksLanguagesLinks { get; set; }
 
     public virtual DbSet<BooksPluginDatum> BooksPluginData { get; set; }
@@ -67,15 +65,15 @@ public partial class MetadataContext : DbContext
 
     public virtual DbSet<Tag> Tags { get; set; }
 
-//    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder){ }
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Annotation>(entity =>
         {
             entity.ToTable("annotations");
 
-            entity.HasIndex(e => new { e.Book, e.UserType, e.User, e.Format, e.AnnotType, e.AnnotId }, "IX_annotations_book_user_type_user_format_annot_type_annot_id").IsUnique();
+            entity.HasIndex(e => new { e.Book, e.UserType, e.User,
+                e.Format, e.AnnotType, e.AnnotId },
+                "IX_annotations_book_user_type_user_format_annot_type_annot_id").IsUnique();
 
             entity.HasIndex(e => e.Book, "annot_idx");
 
@@ -169,24 +167,29 @@ public partial class MetadataContext : DbContext
                 .HasDefaultValueSql("'Unknown'")
                 .HasColumnName("title");
             entity.Property(e => e.Uuid).HasColumnName("uuid");
-        });
 
-        modelBuilder.Entity<BooksAuthorsLink>(entity =>
+            entity.HasMany<Author>(f=>f.Authors)
+                .WithMany(k => k.Books)
+                .UsingEntity<BookAuthorLink>(k =>
+                {
+                    
+                });
+        });
+        
+        modelBuilder.Entity<BookAuthorLink>(entity =>
         {
-            entity.ToTable("books_authors_link");
-
-            entity.HasIndex(e => new { e.Book, e.Author }, "IX_books_authors_link_book_author").IsUnique();
-
-            entity.HasIndex(e => e.Author, "books_authors_link_aidx");
-
-            entity.HasIndex(e => e.Book, "books_authors_link_bidx");
-
-            entity.Property(e => e.Id)
-                .ValueGeneratedNever()
-                .HasColumnName("id");
-            entity.Property(e => e.Author).HasColumnName("author");
-            entity.Property(e => e.Book).HasColumnName("book");
-        });
+             entity.ToTable("books_authors_link");
+        
+            entity.HasIndex(e => new {Book = e.BookId, Author = e.AuthorId }, "IX_books_authors_link_book_author").IsUnique();
+             entity.HasIndex(e => e.AuthorId, "books_authors_link_aidx");
+             entity.HasIndex(e => e.BookId, "books_authors_link_bidx");
+        
+             entity.Property(e => e.Id)
+                 .ValueGeneratedNever()
+                 .HasColumnName("id");
+             entity.Property(k=>k.AuthorId).HasColumnName("author");
+             entity.Property(b=>b.BookId).HasColumnName("book");
+         });
 
         modelBuilder.Entity<BooksLanguagesLink>(entity =>
         {

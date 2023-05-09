@@ -20,17 +20,18 @@ public class BookListingService
     /// <param name="orderBy">The column onto which we should sort. If not specified, we use the `sort` column.</param>
     /// <param name="sortAscending">Should the sort be ascending or descending.</param>
     /// <returns></returns>
-    public async Task<(int count, IEnumerable<Book> books)> GetBooks(int offset = 0, int limit = 20, Expression<Func<Book,object>>? orderBy = null, bool sortAscending = true)
+    public async Task<(int count, IEnumerable<Book> books)> GetBooks(int offset = 0, int limit = 20, 
+        Expression<Func<Book,object>>? orderBy = null, bool sortAscending = true)
     {
         
-        await using var db = _contextFactory();
+        var db = _contextFactory();
         
         var count = await db.Books.CountAsync();
 
         orderBy ??= k => k.Sort;
         
         var baseQuery = sortAscending ? db.Books.OrderBy(orderBy) : db.Books.OrderByDescending(orderBy);
-        var books = await baseQuery.Take(limit).Skip(offset).ToArrayAsync();
+        var books = await baseQuery.Where(k=>k.Authors.Any()).Take(limit).Skip(offset).ToArrayAsync();
         
         return new(count, books);
     }
