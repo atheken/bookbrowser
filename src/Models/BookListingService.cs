@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using BookBrowser.Models;
-using BookBrowser.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookBrowser.Data;

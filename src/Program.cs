@@ -1,6 +1,5 @@
 using BookBrowser;
 using BookBrowser.Data;
-using BookBrowser.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +8,8 @@ builder.Configuration.AddEnvironmentVariables("BB_");
 builder.WebHost.ConfigureKestrel(k =>
 {
     k.ListenAnyIP(builder.Configuration.Get<ConfigurationOptions>().Port);
+    k.AddServerHeader = false;
+    k.AllowResponseHeaderCompression = true;
 });
 
 // Add services to the container.

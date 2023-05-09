@@ -4,6 +4,7 @@ COPY ./src/ ./src
 COPY ./test ./test
 COPY ./*.sln ./
 WORKDIR /build
+RUN dotnet test
 RUN dotnet publish -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:7.0.5-alpine3.17

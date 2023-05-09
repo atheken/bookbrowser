@@ -1,4 +1,4 @@
-namespace BookBrowser.Utilities;
+namespace BookBrowser;
 
 /// <summary>
 /// A delegate function that allows for the creation of a dbcontext.
