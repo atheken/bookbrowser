@@ -4,7 +4,7 @@ namespace BookBrowser;
 /// A delegate function that allows for the creation of a dbcontext.
 /// Passing true will open a read connection, while passing false will open a readonly connection.
 /// </summary>
-public delegate MetadataContext ContextFactory(bool requiresWrite = false);
+public delegate CalibreDbContext ContextFactory(bool requiresWrite = false);
 
 public class ConfigurationOptions
 {

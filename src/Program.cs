@@ -25,7 +25,7 @@ builder.Services.AddSingleton(builder.Configuration.Get<ConfigurationOptions>()!
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-builder.Services.AddPooledDbContextFactory<MetadataContext>(k =>
+builder.Services.AddPooledDbContextFactory<CalibreDbContext>(k =>
 {
     k.UseSqlite($"Data Source={Path.Join(config.CalibreLibraryPath, "metadata.db")}")
         .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
@@ -34,7 +34,7 @@ builder.Services.AddPooledDbContextFactory<MetadataContext>(k =>
 builder.Services.AddSingleton<ContextFactory>(f =>
     k =>
     {
-        return f.GetService<IDbContextFactory<MetadataContext>>().CreateDbContext();
+        return f.GetService<IDbContextFactory<CalibreDbContext>>().CreateDbContext();
     });
 
 builder.Services.AddSingleton<BookListingService>();
