@@ -1,13 +1,21 @@
 using BookBrowser;
-using BookBrowser.Data;
+using BookBrowser.Models;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables("BB_");
 
+
+var config = builder.Configuration.Get<ConfigurationOptions>()!;
+if (!Directory.Exists(config.CalibreLibraryPath))
+{
+    Console.WriteLine($"The specified path for the calibre library (`{config.CalibreLibraryPath}`) does not exist, please set an existing path and run again:");
+    Environment.Exit(-1);
+}
+
 builder.WebHost.ConfigureKestrel(k =>
 {
-    k.ListenAnyIP(builder.Configuration.Get<ConfigurationOptions>().Port);
+    k.ListenAnyIP(config.Port);
     k.AddServerHeader = false;
     k.AllowResponseHeaderCompression = true;
 });
@@ -18,11 +26,10 @@ builder.Services.AddServerSideBlazor();
 
 builder.Services.AddPooledDbContextFactory<MetadataContext>(k =>
 {
-    var opts = builder.Configuration.Get<ConfigurationOptions>();
-    k.UseSqlite($"Data Source={Path.Join(opts.CalibreLibraryPath, "metadata.db")}");
+    k.UseSqlite($"Data Source={Path.Join(config.CalibreLibraryPath, "metadata.db")}");
 });
 
-builder.Services.AddSingleton<ContextFactory>(f => k => f.GetService<IDbContextFactory<MetadataContext>>().CreateDbContext());
+builder.Services.AddSingleton<ContextFactory>(f => k => f.GetService<IDbContextFactory<MetadataContext>>()!.CreateDbContext());
 
 builder.Services.AddSingleton<BookListingService>();
 

@@ -1,8 +1,7 @@
 using System.Linq.Expressions;
-using BookBrowser.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace BookBrowser.Data;
+namespace BookBrowser.Models;
 
 public class BookListingService
 {
@@ -29,6 +28,7 @@ public class BookListingService
         var count = await db.Books.CountAsync();
 
         orderBy ??= k => k.Sort;
+        
         var baseQuery = sortAscending ? db.Books.OrderBy(orderBy) : db.Books.OrderByDescending(orderBy);
         var books = await baseQuery.Take(limit).Skip(offset).ToArrayAsync();
         
