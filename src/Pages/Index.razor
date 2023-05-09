@@ -1,5 +1,8 @@
 ﻿@page "/"
+@page "/books"
+
 @using BookBrowser.Models
+@inject NavigationManager Navigation
 @inject BookListingService BookService
 
 <PageTitle>Books</PageTitle>
@@ -32,15 +35,35 @@ else
         }
         </tbody>
     </table>
-    <div class="text-center">@_count books</div>
+    <div class="text-center">
+        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Math.Max(Offset - 1, 0), ["limit"] = Limit})" target="_self">&lt;</a>
+        Showing @(Offset * Limit) - @((Offset + 1) * Limit) of @_count books
+        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Offset + 1, ["limit"] = Limit})" target="_self">&gt;</a>
+    </div>
 }
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int Offset { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int Limit { get; set; } = 20;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        
+        Limit = Math.Min(20, Math.Max(Limit, 20));
+        Offset = Math.Max(0, Offset);
+        (_count, _books) = await BookService.GetBooks(Offset * Limit, Limit);
+        
+    }
+
     private IEnumerable<Book>? _books;
     private int _count = 0;
 
-    protected override async Task OnInitializedAsync()
-    {
-        (_count, _books) = await BookService.GetBooks();
-    }
+
+
 }

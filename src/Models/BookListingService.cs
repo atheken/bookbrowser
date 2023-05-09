@@ -24,14 +24,14 @@ public class BookListingService
         Expression<Func<Book,object>>? orderBy = null, bool sortAscending = true)
     {
         
-        var db = _contextFactory();
-        
+        await using var db = _contextFactory();
         var count = await db.Books.CountAsync();
 
         orderBy ??= k => k.Sort;
         
         var baseQuery = sortAscending ? db.Books.OrderBy(orderBy) : db.Books.OrderByDescending(orderBy);
-        var books = await baseQuery.Where(k=>k.Authors.Any()).Take(limit).Skip(offset).ToArrayAsync();
+        var books = await baseQuery.Include(k=>k.Authors)
+            .Where(k=>k.Authors.Any()).Skip(offset).Take(limit).ToArrayAsync();
         
         return new(count, books);
     }

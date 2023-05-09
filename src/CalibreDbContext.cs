@@ -174,6 +174,7 @@ public partial class CalibreDbContext : DbContext
                 {
                     
                 });
+            
         });
         
         modelBuilder.Entity<BookAuthorLink>(entity =>
@@ -189,6 +190,7 @@ public partial class CalibreDbContext : DbContext
                  .HasColumnName("id");
              entity.Property(k=>k.AuthorId).HasColumnName("author");
              entity.Property(b=>b.BookId).HasColumnName("book");
+             
          });
 
         modelBuilder.Entity<BooksLanguagesLink>(entity =>
