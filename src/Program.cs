@@ -19,6 +19,7 @@ builder.WebHost.ConfigureKestrel(k =>
     k.AddServerHeader = false;
     k.AllowResponseHeaderCompression = true;
 });
+builder.Services.AddSingleton(builder.Configuration.Get<ConfigurationOptions>()!);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
@@ -45,5 +46,12 @@ app.UseStaticFiles();
 app.UseRouting();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
+
+app.MapControllers();
+
+app.Map("/api/books/{bookid:long}/cover", (long bookid) =>
+{
+    
+});
 
 app.Run();

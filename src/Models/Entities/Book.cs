@@ -26,7 +26,7 @@ public partial class Book
 
     public string? Uuid { get; set; }
 
-    public byte[]? HasCover { get; set; }
+    public bool? HasCover { get; set; }
 
-    public byte[] LastModified { get; set; } = null!;
+    public DateTime? LastModified { get; set; } = null!;
 }

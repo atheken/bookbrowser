@@ -15,6 +15,7 @@ else
     <table class="table">
         <thead>
         <tr>
+            <th></th>
             <th>Title</th>
             <th>Publish Date</th>
         </tr>
@@ -23,6 +24,7 @@ else
         @foreach (var book in _books)
         {
             <tr>
+                <td><img src="./api/books/@book.Id/cover" style="max-width: 50px;"/></td>
                 <td>@book.Title</td>
                 <td>@book.Pubdate</td>
             </tr>
