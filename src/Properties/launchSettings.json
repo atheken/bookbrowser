@@ -7,7 +7,7 @@
       "applicationUrl": "http://localhost:7777",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "BB_CALIBRELIBRARYPATH" : "./"
+        "BB_CALIBRELIBRARYPATH" : "./books"
       }
     }
   }

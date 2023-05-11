@@ -1,5 +1,5 @@
 FROM mcr.microsoft.com/dotnet/sdk:7.0.203-alpine3.17 AS builder
-RUN apk add -u make
+RUN apk add -u make npm nodejs
 COPY ./ /build
 WORKDIR /build
 RUN make publish

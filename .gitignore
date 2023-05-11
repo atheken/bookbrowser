@@ -1,6 +1,9 @@
+node_modules/
 .idea
 bin/
 obj/
 metadata.db
 dist/
 app/
+.DS_Store
+output.css

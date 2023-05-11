@@ -21,7 +21,7 @@ public class BooksController:ControllerBase
         var book = await db.Books.FindAsync(bookId);
         if (book != null)
         {
-            var imagePath = Path.Combine(_config.CalibreLibraryPath, book.Path, "cover.jpg");
+            var imagePath = Path.Combine(Path.GetFullPath(_config.CalibreLibraryPath), book.Path, "cover.jpg");
             if (Path.Exists(imagePath))
             {
                 return new PhysicalFileResult(imagePath, "image/jpeg");

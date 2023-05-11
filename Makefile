@@ -7,7 +7,9 @@ clean:
 	dotnet clean -c Release
 
 publish: clean
-	dotnet publish ./src/bookbrowser.csproj -c Release -o ./dist
+	ENABLE_TAILWINDCSS_PURGE=true dotnet publish ./src/bookbrowser.csproj -c Release -o ./dist
 
 containers:
 	docker buildx build --platform linux/amd64 --platform linux/arm64 -t atheken/bookbrowser:latest .
+	
+all: clean test containers

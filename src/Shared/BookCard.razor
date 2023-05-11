@@ -1,0 +1,33 @@
+@using BookBrowser.Models
+<div class="rounded-xl border-2 border-gray-100 bg-white">
+  <div class="flex items-start gap-4 p-4 sm:p-6 lg:p-8">
+    <a href="#" class="block shrink-0">
+      <img
+        alt="Cover"
+        src="/api/books/@Model.Id/cover"
+        class="h-14 rounded-sm object-cover"
+      />
+    </a>
+
+    <div>
+      <h3 class="font-medium sm:text-lg">
+        <a href="#" class="hover:underline">
+          @Model.Title
+        </a>
+      </h3>
+
+      <p class="line-clamp-2 text-sm text-gray-700">
+        @Model.Path
+      </p>
+      <p class="line-clamp-2 text-sm text-gray-700">
+              @String.Join(",", Model.Authors.Select(k=>k.Name))
+      </p>
+
+    </div>
+  </div>
+</div>
+
+@code {
+    [Parameter]
+    public Book Model { get; set; }
+}

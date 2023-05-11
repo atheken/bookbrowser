@@ -7,40 +7,17 @@
 
 <PageTitle>Books</PageTitle>
 
-<h1>Top Books</h1>
-
 @if (_books == null)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
-    <table class="table">
-    <thead>
-        <tr>
-            <th></th>
-            <th>Title</th>
-            <th>Publish Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var book in _books)
-            {
-                <tr>
-                    <td><img src="./api/books/@book.Id/cover" style="max-width: 50px;" /></td>
-                    <td>@book.Title<br />
-                        @String.Join(", ", book.Authors.Select(k=>k.Name))</td>
-                    <td>@book.Pubdate</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-    <div class="text-center">
-        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Math.Max(Offset - 1, 0), ["limit"] = Limit})"
-            target="_self" class="btn">&lt;</a>
-        Showing @(Offset * Limit) - @((Offset + 1) * Limit) of @_count books
-        <a href="@Navigation.GetUriWithQueryParameters("/books", new Dictionary<string, object?>() { ["offset"] = Offset + 1, ["limit"] = Limit})"
-            target="_self" class="btn">&gt;</a>
+    <div class="grid grid-cols-4 gap-2 space-2">
+    @foreach (var b in _books)
+    {
+        <BookCard Model=@b/>
+    }
     </div>
 }
 
@@ -65,7 +42,4 @@ else
 
     private IEnumerable<Book>? _books;
     private int _count = 0;
-
-
-
 }
