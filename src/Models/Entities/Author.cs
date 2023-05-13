@@ -9,6 +9,4 @@ public partial class Author
     public string? Sort { get; set; }
 
     public string Link { get; set; } = null!;
-
-    public List<Book> Books { get; set; } = new();
 }

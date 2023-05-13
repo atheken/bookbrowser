@@ -1,8 +1,13 @@
+using System.Collections.Immutable;
+using BookBrowser.Models;
+using BookBrowser.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
 namespace BookBrowser.API;
 
 [ApiController]
-[Route("api/books")]
+[Route("api/[controller]")]
 public class BooksController:ControllerBase
 {
     private readonly ContextFactory _dbFactory;
@@ -14,6 +19,19 @@ public class BooksController:ControllerBase
         _config = options;
     }
     
+    [HttpGet]
+    public async Task<ResultPageView<Book>> Get(int limit = 20, int offset = 0, bool sortAscending = true){
+        
+        await using var db = _dbFactory();
+        var count = db.Books.CountAsync();
+
+        var baseQuery = sortAscending ? db.Books.OrderBy(k => k.Sort) : db.Books.OrderByDescending(k=> k.Sort);
+        var books = baseQuery.Include(k=>k.Authors).Skip(offset).Take(limit).ToListAsync();
+            //.Select(k=> new SimpleBookView(k.Id, k.Title, k.Authors.Select(a=> new SimpleAuthorView( a.Name, a.Id)).ToImmutableList())).ToListAsync();
+
+        return new (await count, await books);
+    }
+
     [HttpGet("{bookId:long}/cover")]
     public async Task<IActionResult> Cover(long bookId)
     {

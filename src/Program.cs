@@ -19,11 +19,10 @@ builder.WebHost.ConfigureKestrel(k =>
     k.AddServerHeader = false;
     k.AllowResponseHeaderCompression = true;
 });
-builder.Services.AddSingleton(builder.Configuration.Get<ConfigurationOptions>()!);
 
-// Add services to the container.
-builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
+builder.Services.AddControllers();
+
+builder.Services.AddSingleton(builder.Configuration.Get<ConfigurationOptions>()!);
 
 builder.Services.AddPooledDbContextFactory<CalibreDbContext>(k =>
 {
@@ -37,21 +36,11 @@ builder.Services.AddSingleton<ContextFactory>(f =>
         return f.GetService<IDbContextFactory<CalibreDbContext>>().CreateDbContext();
     });
 
-builder.Services.AddSingleton<BookListingService>();
-
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Error");
-}
-
+app.UseExceptionHandler("/api/error");
 app.UseStaticFiles();
-app.UseRouting();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
-
 app.MapControllers();
+
 
 app.Run();
