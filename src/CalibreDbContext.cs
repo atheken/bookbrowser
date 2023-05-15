@@ -41,7 +41,7 @@ public partial class CalibreDbContext : DbContext
 
     public virtual DbSet<CustomColumn> CustomColumns { get; set; }
 
-    public virtual DbSet<Datum> Data { get; set; }
+    public virtual DbSet<LibraryContent> Data { get; set; }
 
     public virtual DbSet<Feed> Feeds { get; set; }
 
@@ -354,7 +354,7 @@ public partial class CalibreDbContext : DbContext
                 .HasColumnName("normalized");
         });
 
-        modelBuilder.Entity<Datum>(entity =>
+        modelBuilder.Entity<LibraryContent>(entity =>
         {
             entity.ToTable("data");
 
@@ -371,6 +371,10 @@ public partial class CalibreDbContext : DbContext
             entity.Property(e => e.Format).HasColumnName("format");
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.UncompressedSize).HasColumnName("uncompressed_size");
+
+            entity.HasOne<Book>()
+                .WithMany(k => k.LibraryContents)
+                .HasForeignKey(k=>k.Book);
         });
 
         modelBuilder.Entity<Feed>(entity =>

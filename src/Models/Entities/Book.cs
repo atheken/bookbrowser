@@ -31,4 +31,9 @@ public partial class Book
     public DateTime? LastModified { get; set; }
 
     public List<Author> Authors { get; set; } = new();
+
+    /// <summary>
+    /// The library content (list of ebooks stored on disk).
+    /// </summary>
+    public List<LibraryContent> LibraryContents = new ();
 }

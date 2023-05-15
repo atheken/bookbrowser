@@ -8,10 +8,16 @@ public delegate CalibreDbContext ContextFactory(bool requiresWrite = false);
 
 public class ConfigurationOptions
 {
+    private string _path = Path.GetFullPath("/books");
+
     /// <summary>
     /// The root directory of the calibre database/library.
     /// </summary>
-    public string CalibreLibraryPath { get; set; } = "/books";
+    public string CalibreLibraryPath
+    {
+        get => _path;
+        set => _path = Path.GetFullPath(value);
+    }
 
     /// <summary>
     /// Configures the listening port.
