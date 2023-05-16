@@ -1,3 +1,5 @@
+using System.Xml.Linq;
+
 public class OpdsConstants
 {
     public class MediaTypes
@@ -7,6 +9,14 @@ public class OpdsConstants
         public static readonly string Png = "image/png";
         
         public static readonly string Jpeg = "image/jpeg";
+    }
+
+    public class FeedNamespaces
+    {
+        public static readonly XNamespace Opds = "http://opds-spec.org/2010/catalog";
+        public static readonly XNamespace Dcterms = "http://purl.org/dc/terms/";
+        public static readonly XNamespace Opensearch = "http://a9.com/-/spec/opensearch/1.1/";
+        public static readonly XNamespace Relevance = "http://a9.com/-/opensearch/extensions/relevance/1.0/";
     }
 
     /// <summary>

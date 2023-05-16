@@ -1,5 +1,6 @@
 using System.ServiceModel.Syndication;
 using System.Xml;
+using System.Xml.Linq;
 using BookBrowser.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,43 @@ public class OpdsController : ControllerBase
         _options = options;
     }
 
+    /**
+     *
+     * <?xml version="1.0" encoding="UTF-8"?>
+        <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+            <LongName>Project Gutenberg</LongName>
+            <ShortName>Gutenberg</ShortName>
+            <Description>Search the Project Gutenberg ebook catalog.</Description>
+            <Url type="application/atom+xml" template="http://m.gutenberg.org/ebooks/search.opds/?query={searchTerms}"/>
+            <Language>en-us</Language>
+            <OutputEncoding>UTF-8</OutputEncoding>
+            <InputEncoding>UTF-8</InputEncoding>
+        </OpenSearchDescription>
+
+     */
+    [HttpGet("search-spec")]
+    public async Task SearchSpec(string title = "")
+    {
+        var url = Url.Action(nameof(Books)) + "?search={searchTerms}";
+        var ns = OpdsConstants.FeedNamespaces.Opensearch;
+        var doc = new XDocument(new XElement(ns + "OpenSearchDescription",
+            new XElement(ns + "LongName", $"Search {title}"),
+            new XElement(ns + "ShortName", $"Search {title}"),
+            new XElement(ns + "Url", new XAttribute("type", "application/atom+xml"),
+                new XAttribute("template", url)),
+            new XElement(ns + "OutputEncoding", "UTF-8"),
+            new XElement(ns + "InputEncoding", "UTF-8")
+        ));
+        Response.ContentType = "text/xml";
+        var output = Response.BodyWriter.AsStream();
+
+        await using var sr = new StreamWriter(output);
+        await using var xmlWriter = new XmlTextWriter(sr);
+        doc.WriteTo(xmlWriter);
+        await xmlWriter.FlushAsync();
+        await sr.FlushAsync();
+    }
+
     /// <summary>
     /// Allow downloading of the specified book.
     /// </summary>
@@ -34,8 +72,10 @@ public class OpdsController : ControllerBase
         var book = await db.Books.Include(k => k.LibraryContents).FirstAsync(k => k.Id == id);
         var file = book.LibraryContents.First(k => k.Format.ToLower() == type).Name;
         var path = Path.Combine(_options.CalibreLibraryPath, book.Path, $"{file}.epub");
-        return Path.Exists(path) ? new PhysicalFileResult(path,
-                OpdsConstants.FormatTypes.GetValueOrDefault(type, "application/octet-stream")): NotFound();
+        return Path.Exists(path)
+            ? new PhysicalFileResult(path,
+                OpdsConstants.FormatTypes.GetValueOrDefault(type, "application/octet-stream"))
+            : NotFound();
     }
 
     private static Dictionary<string, Func<IQueryable<Book>, IQueryable<Book>>> Sorts =
@@ -51,32 +91,46 @@ public class OpdsController : ControllerBase
     /// <param name="sort"></param>
     /// <param name="page"></param>
     [HttpGet("books/{sort?}")]
-    public async Task Books(string sort = "", int page = 0, long? authorId = null, string? tag = null)
+    public async Task Books(string sort = "", int page = 0, long? authorId = null, string? tag = null,
+        string search = "")
     {
         await using var db = _dbFactory();
         var baseQuery = db.Books.AsQueryable();
         var title = "All Books";
-        
+
         if (authorId != null)
         {
             baseQuery = baseQuery.Where(k => k.Authors.Any(a => a.Id == authorId.Value));
             var author = await db.Authors.FindAsync(authorId);
             title = $"Books by {author.Name}";
-        }else if (!string.IsNullOrWhiteSpace(tag))
+        }
+        else if (!string.IsNullOrWhiteSpace(tag))
         {
             //this should filter by tag...
         }
-        
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            search = search.ToLower();
+            baseQuery = baseQuery.Where(k =>
+                k.Title.ToLower().Contains(search) || k.Authors.Any(a => a.Name.ToLower().Contains(search)));
+        }
+
         var count = await baseQuery.CountAsync();
-        
+
         var items = Sorts[sort](baseQuery)
-            .Include(k=>k.LibraryContents)
+            .Include(k => k.LibraryContents)
+            .Include(k=>k.Authors)
             .Skip(page * _pagelimit).Take(_pagelimit)
             .AsEnumerable()
             .Select(b => new SyndicationItem
             {
                 Title = new TextSyndicationContent(b.Title),
                 LastUpdatedTime = b.LastModified ?? DateTime.MinValue,
+                Authors =
+                {
+                    b.Authors.Select(a => new SyndicationPerson(null, a.Name, Url.Action(nameof(Books), new {authorId = a.Id})))
+                },
                 Links =
                 {
                     new SyndicationLink
@@ -91,11 +145,12 @@ public class OpdsController : ControllerBase
                         MediaType = "image/jpeg",
                         RelationshipType = OpdsConstants.Relations.Thumbnail
                     },
-                    b.LibraryContents.Select(f=> 
+                    b.LibraryContents.Select(f =>
                         new SyndicationLink
                         {
-                            Uri = Url.Action(nameof(Acquire), new {b.Id, type= f.Format.ToLower()})!.AsUri(),
-                            MediaType = OpdsConstants.FormatTypes.GetValueOrDefault(f.Format, "application/octet-stream"),
+                            Uri = Url.Action(nameof(Acquire), new {b.Id, type = f.Format.ToLower()})!.AsUri(),
+                            MediaType = OpdsConstants.FormatTypes.GetValueOrDefault(f.Format,
+                                "application/octet-stream"),
                             RelationshipType = OpdsConstants.FeedTypes.Acquisition
                         })
                 }
@@ -105,7 +160,20 @@ public class OpdsController : ControllerBase
 
         var feed = new SyndicationFeed(a)
         {
-            Title = new TextSyndicationContent(title)
+            Title = new TextSyndicationContent(title),
+            Links =
+            {
+                new SyndicationLink
+                {
+                    Uri = Url.Action(nameof(SearchSpec)).AsUri(),
+                    MediaType = OpdsConstants.FeedTypes.Search,
+                    RelationshipType = OpdsConstants.Relations.Search
+                }
+            },
+            ElementExtensions =
+            {
+                new XElement(OpdsConstants.FeedNamespaces.Opds + "pageLimit", _pagelimit)
+            }
         };
 
         AppendCrawlableLinks(feed, count, page, _pagelimit);
@@ -154,7 +222,7 @@ public class OpdsController : ControllerBase
                 }
             }
         };
-        
+
         var byAuthor = new SyndicationItem
         {
             Title = new TextSyndicationContent("By Author"),
@@ -180,7 +248,7 @@ public class OpdsController : ControllerBase
     {
         await using var db = _dbFactory();
 
-        var groups = await db.Authors.Select(k=>new { k.Name, k.Id, Count = k.Books.Count()}).ToListAsync();
+        var groups = await db.Authors.Select(k => new {k.Name, k.Id, Count = k.Books.Count()}).ToListAsync();
 
         var feed = new SyndicationFeed(groups.Select(f =>
             new SyndicationItem
@@ -196,20 +264,29 @@ public class OpdsController : ControllerBase
                         RelationshipType = OpdsConstants.Relations.Subsection
                     }
                 }
-
             }))
         {
             Title = new TextSyndicationContent("Books by Author")
         };
-        
+
         WriteAtomToResponse(feed);
     }
-    
+
+    private string? ExtendCurrentRequest(object parameters)
+    {
+        // merge parameters with the current route, generate a url, and then restore to the existing route.
+        var routeDictionary = RouteData.PushState(null, new RouteValueDictionary(parameters), null);
+        var result = Url.RouteUrl(RouteData);
+        routeDictionary.Restore();
+        return result;
+    }
+
     private SyndicationLink CreateCrawlableLink(int page, string relationship)
     {
         var routeClone = Request.RouteValues.ToDictionary(k => k.Key, v => v.Value);
         routeClone["page"] = page;
-        return new SyndicationLink(Url.Action(routeClone["action"].ToString(), routeClone["controller"].ToString(), routeClone).AsUri())
+        return new SyndicationLink(Url
+            .Action(routeClone["action"].ToString(), routeClone["controller"].ToString(), routeClone).AsUri())
         {
             RelationshipType = relationship,
             MediaType = OpdsConstants.Relations.Crawlable
