@@ -7,12 +7,18 @@ public class OpdsConstants
         public static readonly string Png = "image/png";
         
         public static readonly string Jpeg = "image/jpeg";
-        
-        public static readonly string Epub = "application/epub+zip";
-        
-        public static readonly string Mobi = "application/x-mobipocket-ebook";
     }
-    
+
+    /// <summary>
+    /// The mime types for known ebook formats.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> FormatTypes = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
+    {
+        ["epub"] = "application/epub+zip",
+        ["mobi"] = "application/x-mobipocket-ebook",
+        ["pdf"] = "application/pdf"
+    };
+
     public class FeedTypes
     {
         /// <summary>
@@ -101,6 +107,11 @@ public class OpdsConstants
         /// </summary>
         public static readonly string Self = "self";
 
+        /// <summary>
+        /// Supports referencing a "current" feed when crawling an archived feed.
+        /// </summary>
+        public static readonly string Current = "current";
+        
         /// <summary>
         /// Supports a "crawlable" feed.  A relation to the first page.
         /// </summary>

@@ -1,6 +1,3 @@
-using System.IO.Pipelines;
-using System.IO.Pipes;
-using System.Linq.Expressions;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using BookBrowser.Models;
@@ -11,12 +8,12 @@ namespace BookBrowser.API;
 
 [ApiController]
 [Route("opds")]
-public class OpdsController:ControllerBase
+public class OpdsController : ControllerBase
 {
     private readonly ContextFactory _dbFactory;
     private readonly ConfigurationOptions _options;
     private readonly int _pagelimit = 50;
-    
+
     public OpdsController(ContextFactory dbFactory, ConfigurationOptions options)
     {
         _dbFactory = dbFactory;
@@ -33,19 +30,19 @@ public class OpdsController:ControllerBase
     public async Task<IActionResult> Acquire(long id, string type = "epub")
     {
         await using var db = _dbFactory();
-        
-        var book = await db.Books.Include(k=>k.LibraryContents).FirstAsync(k=>k.Id == id);
+
+        var book = await db.Books.Include(k => k.LibraryContents).FirstAsync(k => k.Id == id);
         var file = book.LibraryContents.First(k => k.Format.ToLower() == type).Name;
         var path = Path.Combine(_options.CalibreLibraryPath, book.Path, $"{file}.epub");
-        
-        return new PhysicalFileResult(path, OpdsConstants.MediaTypes.Epub);
+        return Path.Exists(path) ? new PhysicalFileResult(path,
+                OpdsConstants.FormatTypes.GetValueOrDefault(type, "application/octet-stream")): NotFound();
     }
 
     private static Dictionary<string, Func<IQueryable<Book>, IQueryable<Book>>> Sorts =
-        new (StringComparer.InvariantCultureIgnoreCase)
+        new(StringComparer.InvariantCultureIgnoreCase)
         {
-            [""] = f=> f.OrderBy(k=>k.Sort),
-            ["new"] = f=> f.OrderByDescending( k => k.Timestamp)
+            [""] = f => f.OrderBy(k => k.Sort),
+            ["new"] = f => f.OrderByDescending(k => k.Timestamp)
         };
 
     /// <summary>
@@ -54,40 +51,57 @@ public class OpdsController:ControllerBase
     /// <param name="sort"></param>
     /// <param name="page"></param>
     [HttpGet("books/{sort?}")]
-    public async Task Books(string sort = "", int page = 0)
+    public async Task Books(string sort = "", int page = 0, long? authorId = null)
     {
         await using var db = _dbFactory();
-        var count = await db.Books.CountAsync();
-
-        var items = Sorts[sort](db.Books)
+        var baseQuery = db.Books.AsQueryable();
+        
+        if (authorId != null)
+        {
+            baseQuery = baseQuery.Where(k => k.Authors.Any(a => a.Id == authorId.Value));
+        }
+        
+        var count = await baseQuery.CountAsync();
+        
+        var items = Sorts[sort](baseQuery)
             .Skip(page * _pagelimit).Take(_pagelimit)
             .AsEnumerable()
             .Select(b => new SyndicationItem
-        {
-            Title = new TextSyndicationContent(b.Title),
-            LastUpdatedTime = b.LastModified ?? DateTime.MinValue,
-            Links =
             {
-                new SyndicationLink
+                Title = new TextSyndicationContent(b.Title),
+                LastUpdatedTime = b.LastModified ?? DateTime.MinValue,
+                Links =
                 {
-                 Uri  = new Uri($"/api/books/{b.Id}/cover/", UriKind.Relative),
-                 MediaType = "image/jpeg",
-                 RelationshipType = OpdsConstants.Relations.Image
-                },
-                new SyndicationLink
-                {
-                    Uri  = new Uri($"/opds/acquire/book/{b.Id}", UriKind.Relative),
-                    MediaType = OpdsConstants.MediaTypes.Epub,
-                    RelationshipType = OpdsConstants.FeedTypes.Acquisition
+                    new SyndicationLink
+                    {
+                        Uri = Url.Action(nameof(BooksController.Cover), "books", new {bookId = b.Id})!.AsPublicUri(Request),
+                        MediaType = "image/jpeg",
+                        RelationshipType = OpdsConstants.Relations.Image
+                    },
+                    new SyndicationLink
+                    {
+                        Uri = Url.Action(nameof(BooksController.Cover), "Books", new {bookId = b.Id})!.AsPublicUri(Request),
+                        MediaType = "image/jpeg",
+                        RelationshipType = OpdsConstants.Relations.Thumbnail
+                    },
+                    b.LibraryContents.Select(f=> 
+                        new SyndicationLink
+                        {
+                            Uri = Url.Action(nameof(Acquire), new {b.Id, type= f.Format.ToLower()})!.AsPublicUri(Request),
+                            MediaType = OpdsConstants.FormatTypes.GetValueOrDefault(f.Format, "application/octet-stream"),
+                            RelationshipType = OpdsConstants.FeedTypes.Acquisition
+                        })
                 }
-            }
-        });
+            });
 
         var a = items.ToArray();
-        
-        var feed = new SyndicationFeed(a);
 
-        AppendCrawlableLinks(feed, count, page, _pagelimit, Request.Path);
+        var feed = new SyndicationFeed(a)
+        {
+            Title = new TextSyndicationContent("Book Listing")
+        };
+
+        AppendCrawlableLinks(feed, count, page, _pagelimit);
         WriteAtomToResponse(feed);
     }
 
@@ -99,52 +113,129 @@ public class OpdsController:ControllerBase
     {
         await using var db = _dbFactory();
         var lastUpdate = await db.Books.MaxAsync(k => k.LastModified) ?? DateTime.MinValue;
-        
+
         var allBooks = new SyndicationItem
         {
             Title = new TextSyndicationContent("All Books"),
             LastUpdatedTime = lastUpdate,
             Content = new TextSyndicationContent("All available books"),
-            Links = {  new SyndicationLink
+            Links =
+            {
+                new SyndicationLink
                 {
                     Title = "All Books",
                     MediaType = OpdsConstants.FeedTypes.Acquisition,
-                    Uri = new Uri("/opds/books/", UriKind.Relative),
+                    Uri = Url.Action(nameof(Books))!.AsPublicUri(Request),
                     RelationshipType = OpdsConstants.Relations.New
                 }
-                
             }
         };
-        
+
         var newBooks = new SyndicationItem
         {
             Title = new TextSyndicationContent("New Books"),
             Content = new TextSyndicationContent("Recently added books."),
             LastUpdatedTime = lastUpdate,
-            Links = {  new SyndicationLink
+            Links =
             {
-                Title = "New Books",
-                MediaType = OpdsConstants.FeedTypes.Acquisition,
-                Uri = new Uri("/opds/books/new", UriKind.Relative),
-                RelationshipType = OpdsConstants.Relations.New
+                new SyndicationLink
+                {
+                    Title = "New Books",
+                    MediaType = OpdsConstants.FeedTypes.Acquisition,
+                    Uri = Url.ActionLink(nameof(Books), null, new {sort = "new"})!.AsUri(),
+                    RelationshipType = OpdsConstants.Relations.New
+                }
             }
-                
+        };
+        
+        var byAuthor = new SyndicationItem
+        {
+            Title = new TextSyndicationContent("By Author"),
+            Content = new TextSyndicationContent("Books sorted by Author."),
+            LastUpdatedTime = lastUpdate,
+            Links =
+            {
+                new SyndicationLink
+                {
+                    Title = "By Author",
+                    MediaType = OpdsConstants.FeedTypes.Acquisition,
+                    Uri = Url.ActionLink(nameof(ListingByAuthor), null, new {sort = "new"})!.AsUri(),
+                    RelationshipType = OpdsConstants.Relations.New
+                }
             }
         };
 
-        WriteAtomToResponse(new SyndicationFeed(new[] {allBooks, newBooks}));
+        WriteAtomToResponse(new SyndicationFeed(new[] {allBooks, newBooks, byAuthor}));
     }
 
-    
-    private SyndicationLink CreateCrawlableLink(string basepath, int page, string relationship)
+    [HttpGet("by-author")]
+    public async Task ListingByAuthor()
     {
-        return new SyndicationLink(new Uri($"{basepath}?page={page}", UriKind.Relative))
+        await using var db = _dbFactory();
+
+        var groups = await db.Authors.Select(l => l.Name.Substring(0, 1).ToUpper()).GroupBy(k => k)
+            .Select(m => new {m.Key, Count = m.Count()}).OrderBy(k=>k.Key).ToListAsync();
+        
+        var feed = new SyndicationFeed(groups.Select(f =>
+            new SyndicationItem
+            {
+                Title = new TextSyndicationContent($"{f.Key} ({f.Count})"),
+                Links =
+                {
+                    new SyndicationLink
+                    {
+                        Title = f.Key,
+                        MediaType = OpdsConstants.FeedTypes.Acquisition,
+                        Uri = Url.Action(nameof(ListingByAuthorPrefix), new {prefix = f.Key})!.AsPublicUri(Request),
+                        RelationshipType = OpdsConstants.Relations.Subsection
+                    }
+                }
+            
+        }));
+        
+        WriteAtomToResponse(feed);
+        
+    }
+    
+    [HttpGet("by-author/{prefix}")]
+    public async Task ListingByAuthorPrefix(string prefix)
+    {
+        await using var db = _dbFactory();
+
+        var groups = await db.Authors
+            .Where(l => l.Name.Substring(0, 1).ToUpper() == prefix)
+            .Select(m => new {m.Name, m.Id}).OrderBy(k=>k.Name).ToListAsync();
+        
+        var feed = new SyndicationFeed(groups.Select(f =>
+            new SyndicationItem
+            {
+                Title = new TextSyndicationContent(f.Name),
+                Links =
+                {
+                    new SyndicationLink
+                    {
+                        Title = f.Name,
+                        MediaType = OpdsConstants.FeedTypes.Acquisition,
+                        Uri = Url.Action(nameof(Books), new {authorid = f.Id})!.AsPublicUri(Request),
+                        RelationshipType = OpdsConstants.Relations.Subsection
+                    }
+                }
+            }));
+        WriteAtomToResponse(feed);
+    }
+    
+
+    private SyndicationLink CreateCrawlableLink(int page, string relationship)
+    {
+        var routeClone = Request.RouteValues.ToDictionary(k => k.Key, v => v.Value);
+        routeClone["page"] = page;
+        return new SyndicationLink(Url.ActionLink(routeClone["action"].ToString(), routeClone["controller"].ToString(), routeClone).AsUri())
         {
             RelationshipType = relationship,
             MediaType = OpdsConstants.Relations.Crawlable
         };
     }
-    
+
     /// <summary>
     /// Append links to support crawlable features
     /// </summary>
@@ -154,20 +245,20 @@ public class OpdsController:ControllerBase
     /// <param name="count"></param>
     /// <param name="current"></param>
     /// <param name="pageLimit"></param>
-    /// <param name="basePath"></param>
-    private void AppendCrawlableLinks(SyndicationFeed feed, int count, int current, int pageLimit, string basePath)
-    {  
-        var maxPage = (int)Math.Floor((float)count / pageLimit);
-        feed.Links.Add(CreateCrawlableLink(basePath, current, OpdsConstants.Relations.Self));
-        feed.Links.Add(CreateCrawlableLink(basePath, 0, OpdsConstants.Relations.Start));
-        feed.Links.Add(CreateCrawlableLink(basePath, maxPage, OpdsConstants.Relations.Last));
+    private void AppendCrawlableLinks(SyndicationFeed feed, int count, int current, int pageLimit)
+    {
+        var maxPage = (int) Math.Floor((float) count / pageLimit);
+        feed.Links.Add(CreateCrawlableLink(current, OpdsConstants.Relations.Self));
+        feed.Links.Add(CreateCrawlableLink(0, OpdsConstants.Relations.First));
+        feed.Links.Add(CreateCrawlableLink(maxPage, OpdsConstants.Relations.Last));
         if (current + 1 <= maxPage)
         {
-            feed.Links.Add(CreateCrawlableLink(basePath, current+1, OpdsConstants.Relations.Next));
+            feed.Links.Add(CreateCrawlableLink(current + 1, OpdsConstants.Relations.Next));
         }
+
         if (current - 1 >= 0)
         {
-            feed.Links.Add(CreateCrawlableLink(basePath, current-1, OpdsConstants.Relations.Previous));
+            feed.Links.Add(CreateCrawlableLink(current - 1, OpdsConstants.Relations.Previous));
         }
     }
 
@@ -179,10 +270,10 @@ public class OpdsController:ControllerBase
     {
         Response.ContentType = "application/atom+xml";
         var stream = Response.BodyWriter.AsStream();
-        
+
         await using var streamWriter = new StreamWriter(stream);
         await using var xmlWriter = new XmlTextWriter(streamWriter);
-        
+
         feed.GetAtom10Formatter().WriteTo(xmlWriter);
         xmlWriter.Flush();
         await streamWriter.FlushAsync();
