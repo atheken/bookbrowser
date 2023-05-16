@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace BookBrowser.API;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/{controller}")]
 public class BooksController:ControllerBase
 {
     private readonly ContextFactory _dbFactory;

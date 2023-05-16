@@ -169,7 +169,7 @@ public partial class CalibreDbContext : DbContext
             entity.Property(e => e.Uuid).HasColumnName("uuid");
 
             entity.HasMany<Author>(f=>f.Authors)
-                .WithMany()
+                .WithMany(k=>k.Books)
                 .UsingEntity<BookAuthorLink>();
         });
         

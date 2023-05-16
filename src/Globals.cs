@@ -33,9 +33,9 @@ public static class Helpers
     /// Converts a string to a uri.
     /// </summary>
     /// <param name="uri">The string representation of the uri.</param>
-    /// <param name="kind">The kind of URI to create, defaults to absolute.</param>
+    /// <param name="kind">The kind of URI to create.</param>
     /// <returns></returns>
-    public static Uri AsUri(this string uri, UriKind kind = UriKind.Absolute) => new (uri, kind);
+    public static Uri AsUri(this string uri, UriKind kind = UriKind.RelativeOrAbsolute) => new (uri, kind);
 
     public static Uri AsPublicUri(this string pathAndQuery, HttpRequest requestContext) =>
         new ($"{requestContext.Scheme}://{requestContext.Host}{pathAndQuery}");
