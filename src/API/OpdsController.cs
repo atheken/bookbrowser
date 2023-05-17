@@ -80,7 +80,7 @@ public class OpdsController : ControllerBase
     /// <param name="page"></param>
     [HttpGet("books/{sort?}")]
     public async Task Books(string sort = "", int page = 0,
-        long? authorId = null, string? tag = null, string search = "")
+        long? authorId = null, string? tag = null, long? seriesId = null, string search = "")
     {
         await using var db = _dbFactory();
         var baseQuery = db.Books.AsQueryable();
@@ -90,12 +90,18 @@ public class OpdsController : ControllerBase
         {
             baseQuery = baseQuery.Where(k => k.Authors.Any(a => a.Id == authorId.Value));
             var author = await db.Authors.FindAsync(authorId);
-            title = $"Books by {author.Name}";
+            title = $"Books by `{author.Name}`";
         }
         else if (!string.IsNullOrWhiteSpace(tag))
         {
             baseQuery = baseQuery.Where(b => b.Tags.Any(k => k.Name.ToLower() == tag.ToLower()));
             title = $"Books tagged with `{tag}`";
+        }
+        else if (seriesId.HasValue)
+        {
+            baseQuery = db.Series.Where(s => s.Id == seriesId).SelectMany(k => k.Books);
+            var series = await db.Series.FindAsync(seriesId);
+            title = $"Books in Series: `{series.Name}";
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -256,6 +262,7 @@ public class OpdsController : ControllerBase
         new GroupingDefinition("author", "Books by Author", f => f.Authors, a=> new {authorId = a.Id}),
         new GroupingDefinition("tag", "Books by Popular Tags", f => f.Tags.Where(k=>k.Books.Count() >= 10), t=> new {tag = t.Name}),
         new GroupingDefinition("unique-tag", "Books by Unique Tags", f => f.Tags.Where(k=>k.Books.Count() < 10), t=> new {tag = t.Name}),
+        new GroupingDefinition("series", "Books by Series", f => f.Series, t=> new {seriesId = t.Id}),
     }.ToImmutableDictionary(l => l.grouping, v => v);
 
     [HttpGet("by-{grouping}")]

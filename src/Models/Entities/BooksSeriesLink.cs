@@ -4,7 +4,7 @@ public partial class BooksSeriesLink
 {
     public long Id { get; set; }
 
-    public long Book { get; set; }
+    public long BookId { get; set; }
 
-    public long Series { get; set; }
+    public long SeriesId { get; set; }
 }

@@ -40,4 +40,6 @@ public partial class Book
     public Comment? Comment { get; set; }
 
     public List<Tag> Tags { get; set; } = new();
+    
+    public List<Series> Series { get; set; } = new();
 }

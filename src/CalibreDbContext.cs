@@ -177,6 +177,13 @@ public partial class CalibreDbContext : DbContext
             entity.HasMany<Tag>(l => l.Tags)
                 .WithMany(k => k.Books)
                 .UsingEntity<BooksTagsLink>();
+
+            entity.HasMany<Series>(l => l.Series)
+                .WithMany(k => k.Books)
+                .UsingEntity<BooksSeriesLink>();
+
+
+
         });
         
         modelBuilder.Entity<BookAuthorLink>(entity =>
@@ -265,17 +272,17 @@ public partial class CalibreDbContext : DbContext
         {
             entity.ToTable("books_series_link");
 
-            entity.HasIndex(e => e.Book, "IX_books_series_link_book").IsUnique();
+            entity.HasIndex(e => e.BookId, "IX_books_series_link_book").IsUnique();
 
-            entity.HasIndex(e => e.Series, "books_series_link_aidx");
+            entity.HasIndex(e => e.SeriesId, "books_series_link_aidx");
 
-            entity.HasIndex(e => e.Book, "books_series_link_bidx");
+            entity.HasIndex(e => e.BookId, "books_series_link_bidx");
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
                 .HasColumnName("id");
-            entity.Property(e => e.Book).HasColumnName("book");
-            entity.Property(e => e.Series).HasColumnName("series");
+            entity.Property(e => e.BookId).HasColumnName("book");
+            entity.Property(e => e.SeriesId).HasColumnName("series");
         });
 
         modelBuilder.Entity<BooksTagsLink>(entity =>
