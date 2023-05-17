@@ -1,6 +1,6 @@
 ﻿namespace BookBrowser.Models;
 
-public partial class Publisher
+public partial class Publisher : IBookGrouping
 {
     public long Id { get; set; }
 
@@ -9,4 +9,6 @@ public partial class Publisher
     public string? Sort { get; set; }
 
     public string Link { get; set; } = null!;
+    
+    public List<Book> Books { get; set; } = new();
 }

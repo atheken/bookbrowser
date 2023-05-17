@@ -23,25 +23,25 @@ public partial class CalibreDbContext : DbContext
 
     public virtual DbSet<Book> Books { get; set; }
 
-    public virtual DbSet<BooksLanguagesLink> BooksLanguagesLinks { get; set; }
+    //public virtual DbSet<BooksLanguagesLink> BooksLanguagesLinks { get; set; }
 
     public virtual DbSet<BooksPluginDatum> BooksPluginData { get; set; }
 
-    public virtual DbSet<BooksPublishersLink> BooksPublishersLinks { get; set; }
+    //public virtual DbSet<BooksPublishersLink> BooksPublishersLinks { get; set; }
 
-    public virtual DbSet<BooksRatingsLink> BooksRatingsLinks { get; set; }
+    //public virtual DbSet<BooksRatingsLink> BooksRatingsLinks { get; set; }
 
-    public virtual DbSet<BooksSeriesLink> BooksSeriesLinks { get; set; }
+    //public virtual DbSet<BooksSeriesLink> BooksSeriesLinks { get; set; }
 
-    public virtual DbSet<BooksTagsLink> BooksTagsLinks { get; set; }
+    //public virtual DbSet<BooksTagsLink> BooksTagsLinks { get; set; }
 
-    public virtual DbSet<Comment> Comments { get; set; }
+    //public virtual DbSet<Comment> Comments { get; set; }
 
     public virtual DbSet<ConversionOption> ConversionOptions { get; set; }
 
     public virtual DbSet<CustomColumn> CustomColumns { get; set; }
 
-    public virtual DbSet<LibraryContent> Data { get; set; }
+    //public virtual DbSet<LibraryContent> Data { get; set; }
 
     public virtual DbSet<Feed> Feeds { get; set; }
 
@@ -181,9 +181,7 @@ public partial class CalibreDbContext : DbContext
             entity.HasMany<Series>(l => l.Series)
                 .WithMany(k => k.Books)
                 .UsingEntity<BooksSeriesLink>();
-
-
-
+            
         });
         
         modelBuilder.Entity<BookAuthorLink>(entity =>
@@ -515,7 +513,7 @@ public partial class CalibreDbContext : DbContext
         {
             entity.ToTable("ratings");
 
-            entity.HasIndex(e => e.Rating1, "IX_ratings_rating").IsUnique();
+            entity.HasIndex(e => e.RatingValue, "IX_ratings_rating").IsUnique();
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
@@ -523,7 +521,7 @@ public partial class CalibreDbContext : DbContext
             entity.Property(e => e.Link)
                 .HasDefaultValueSql("''")
                 .HasColumnName("link");
-            entity.Property(e => e.Rating1).HasColumnName("rating");
+            entity.Property(e => e.RatingValue).HasColumnName("rating");
         });
 
         modelBuilder.Entity<Series>(entity =>

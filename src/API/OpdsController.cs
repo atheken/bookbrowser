@@ -4,6 +4,7 @@ using System.Xml;
 using System.Xml.Linq;
 using BookBrowser.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookBrowser.API;
@@ -14,7 +15,7 @@ public class OpdsController : ControllerBase
 {
     private readonly ContextFactory _dbFactory;
     private readonly ConfigurationOptions _options;
-    private readonly int _pagelimit = 50;
+    private const int PageLimit = 50;
 
     public OpdsController(ContextFactory dbFactory, ConfigurationOptions options)
     {
@@ -22,6 +23,31 @@ public class OpdsController : ControllerBase
         _options = options;
     }
 
+    [HttpGet("media/{bookId:long}/cover")]
+    public async Task<IActionResult> Cover(long bookId)
+    {
+        await using var db = _dbFactory();
+        var book = await db.Books.FindAsync(bookId);
+        if (book != null)
+        {
+            var imagePath = Path.Combine(Path.GetFullPath(_options.CalibreLibraryPath), book.Path, "cover.jpg");
+            if (Path.Exists(imagePath))
+            {
+                // generate the etag, and if the client already has it, respond with a 304 (Not Modified).
+                var etag = imagePath.EtagForPath();
+                if (Request.Headers["If-None-Match"].Contains(etag))
+                {
+                    return StatusCode(304);
+                }
+                
+                Response.Headers.Add("Etag", etag);
+                return new PhysicalFileResult(imagePath, "image/jpeg");
+            }
+        }
+
+        return Redirect("/nocover.jpg");
+    }
+    
     [HttpGet("search-spec")]
     public async Task SearchSpec(string title = "")
     {
@@ -117,7 +143,7 @@ public class OpdsController : ControllerBase
             .Include(k => k.LibraryContents)
             .Include(k => k.Authors)
             .Include(k => k.Comment)
-            .Skip(page * _pagelimit).Take(_pagelimit)
+            .Skip(page * PageLimit).Take(PageLimit)
             .AsEnumerable()
             .Select(b => new SyndicationItem
             {
@@ -135,13 +161,13 @@ public class OpdsController : ControllerBase
                 {
                     new SyndicationLink
                     {
-                        Uri = Url.Action(nameof(BooksController.Cover), "books", new {bookId = b.Id})!.AsUri(),
+                        Uri = Url.Action(nameof(Cover), new {bookId = b.Id})!.AsUri(),
                         MediaType = "image/jpeg",
                         RelationshipType = OpdsConstants.Relations.Image
                     },
                     new SyndicationLink
                     {
-                        Uri = Url.Action(nameof(BooksController.Cover), "books", new {bookId = b.Id})!.AsUri(),
+                        Uri = Url.Action(nameof(Cover), new {bookId = b.Id})!.AsUri(),
                         MediaType = "image/jpeg",
                         RelationshipType = OpdsConstants.Relations.Thumbnail
                     },
@@ -172,11 +198,11 @@ public class OpdsController : ControllerBase
             },
             ElementExtensions =
             {
-                new XElement(OpdsConstants.FeedNamespaces.Opds + "pageLimit", _pagelimit)
+                new XElement(OpdsConstants.FeedNamespaces.Opds + "pageLimit", PageLimit)
             }
         };
 
-        AppendCrawlableLinks(feed, count, page, _pagelimit);
+        AppendCrawlableLinks(feed, count, page, PageLimit);
         WriteAtomToResponse(feed);
     }
 
@@ -229,15 +255,15 @@ public class OpdsController : ControllerBase
             allBooks, newBooks
         }.Concat(Groupings.Select(k => new SyndicationItem
         {
-            Title = new TextSyndicationContent(k.Value.title),
+            Title = new TextSyndicationContent(k.Value.Title),
             LastUpdatedTime = lastUpdate,
             Links =
             {
                 new SyndicationLink
                 {
-                    Title = k.Value.title,
+                    Title = k.Value.Title,
                     MediaType = OpdsConstants.FeedTypes.Acquisition,
-                    Uri = Url.Action(nameof(ListingByGrouping), new {k.Value.grouping})!.AsUri(),
+                    Uri = Url.Action(nameof(ListingByGrouping), new {grouping = k.Value.Grouping})!.AsUri(),
                     RelationshipType = OpdsConstants.Relations.Subsection
                 }
             }
@@ -263,14 +289,14 @@ public class OpdsController : ControllerBase
         new GroupingDefinition("tag", "Books by Popular Tags", f => f.Tags.Where(k=>k.Books.Count() >= 10), t=> new {tag = t.Name}),
         new GroupingDefinition("unique-tag", "Books by Unique Tags", f => f.Tags.Where(k=>k.Books.Count() < 10), t=> new {tag = t.Name}),
         new GroupingDefinition("series", "Books by Series", f => f.Series, t=> new {seriesId = t.Id}),
-    }.ToImmutableDictionary(l => l.grouping, v => v);
+    }.ToImmutableDictionary(l => l.Grouping, v => v);
 
     [HttpGet("by-{grouping}")]
     public async Task ListingByGrouping(string grouping)
     {
         await using var db = _dbFactory();
         var group = Groupings[grouping.ToLower()];
-        var groups = await group.baseSelector(db).Select(k => new GroupingSummary(k.Name, k.Id, k.Books.Count()))
+        var groups = await group.BaseSelector(db).Select(k => new GroupingSummary(k.Name, k.Id, k.Books.Count()))
             .ToListAsync();
 
         var feed = new SyndicationFeed(groups.Select(f =>
@@ -283,25 +309,16 @@ public class OpdsController : ControllerBase
                     {
                         Title = $"{f.Name} ({f.Count} works)",
                         MediaType = OpdsConstants.FeedTypes.Acquisition,
-                        Uri = Url.Action(nameof(Books), group.feedFilterSelector(f))!.AsUri(),
+                        Uri = Url.Action(nameof(Books), group.FeedFilterSelector(f))!.AsUri(),
                         RelationshipType = OpdsConstants.Relations.Subsection
                     }
                 }
             }))
         {
-            Title = new TextSyndicationContent($"Books by {grouping}")
+            Title = new TextSyndicationContent(group.Title)
         };
 
         WriteAtomToResponse(feed);
-    }
-
-    private string? ExtendCurrentRequest(object parameters)
-    {
-        // merge parameters with the current route, generate a url, and then restore to the existing route.
-        var routeDictionary = RouteData.PushState(null, new RouteValueDictionary(parameters), null);
-        var result = Url.RouteUrl(RouteData);
-        routeDictionary.Restore();
-        return result;
     }
 
     private SyndicationLink CreateCrawlableLink(int page, string relationship)
@@ -360,7 +377,7 @@ public class OpdsController : ControllerBase
     }
 }
 
-record GroupingDefinition(string grouping, string title,
-    Func<CalibreDbContext, IQueryable<IBookGrouping>> baseSelector, Func<GroupingSummary, object> feedFilterSelector);
+record GroupingDefinition(string Grouping, string Title,
+    Func<CalibreDbContext, IQueryable<IBookGrouping>> BaseSelector, Func<GroupingSummary, object> FeedFilterSelector);
     
 record GroupingSummary(string Name, long Id, int Count);

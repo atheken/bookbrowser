@@ -1,10 +1,13 @@
 namespace BookBrowser.Models;
 
+/// <summary>
+/// A category by which books are grouped.
+/// </summary>
 public class IBookGrouping
 {
-    public long Id { get; set; }
+    public long Id { get; }
 
-    public string Name { get; set; }
+    public string Name { get; }
 
-    public List<Book> Books { get; set; }
+    public List<Book> Books { get;  }
 }
