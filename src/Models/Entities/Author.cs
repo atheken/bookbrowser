@@ -1,6 +1,6 @@
 ﻿namespace BookBrowser.Models;
 
-public partial class Author
+public partial class Author: IBookGrouping
 {
     public long Id { get; set; }
 

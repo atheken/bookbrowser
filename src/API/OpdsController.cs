@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using System.Xml.Linq;
@@ -21,20 +22,6 @@ public class OpdsController : ControllerBase
         _options = options;
     }
 
-    /**
-     *
-     * <?xml version="1.0" encoding="UTF-8"?>
-        <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
-            <LongName>Project Gutenberg</LongName>
-            <ShortName>Gutenberg</ShortName>
-            <Description>Search the Project Gutenberg ebook catalog.</Description>
-            <Url type="application/atom+xml" template="http://m.gutenberg.org/ebooks/search.opds/?query={searchTerms}"/>
-            <Language>en-us</Language>
-            <OutputEncoding>UTF-8</OutputEncoding>
-            <InputEncoding>UTF-8</InputEncoding>
-        </OpenSearchDescription>
-
-     */
     [HttpGet("search-spec")]
     public async Task SearchSpec(string title = "")
     {
@@ -45,6 +32,7 @@ public class OpdsController : ControllerBase
             new XElement(ns + "ShortName", $"Search {title}"),
             new XElement(ns + "Url", new XAttribute("type", "application/atom+xml"),
                 new XAttribute("template", url)),
+            new XElement(ns + "SyndicationRight", "open"),
             new XElement(ns + "OutputEncoding", "UTF-8"),
             new XElement(ns + "InputEncoding", "UTF-8")
         ));
@@ -91,8 +79,8 @@ public class OpdsController : ControllerBase
     /// <param name="sort"></param>
     /// <param name="page"></param>
     [HttpGet("books/{sort?}")]
-    public async Task Books(string sort = "", int page = 0, long? authorId = null, string? tag = null,
-        string search = "")
+    public async Task Books(string sort = "", int page = 0,
+        long? authorId = null, string? tag = null, string search = "")
     {
         await using var db = _dbFactory();
         var baseQuery = db.Books.AsQueryable();
@@ -106,7 +94,8 @@ public class OpdsController : ControllerBase
         }
         else if (!string.IsNullOrWhiteSpace(tag))
         {
-            //this should filter by tag...
+            baseQuery = baseQuery.Where(b => b.Tags.Any(k => k.Name.ToLower() == tag.ToLower()));
+            title = $"Books tagged with `{tag}`";
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -120,7 +109,8 @@ public class OpdsController : ControllerBase
 
         var items = Sorts[sort](baseQuery)
             .Include(k => k.LibraryContents)
-            .Include(k=>k.Authors)
+            .Include(k => k.Authors)
+            .Include(k => k.Comment)
             .Skip(page * _pagelimit).Take(_pagelimit)
             .AsEnumerable()
             .Select(b => new SyndicationItem
@@ -129,8 +119,12 @@ public class OpdsController : ControllerBase
                 LastUpdatedTime = b.LastModified ?? DateTime.MinValue,
                 Authors =
                 {
-                    b.Authors.Select(a => new SyndicationPerson(null, a.Name, Url.Action(nameof(Books), new {authorId = a.Id})))
+                    b.Authors.Select(a =>
+                        new SyndicationPerson(null, a.Name, Url.Action(nameof(Books), new {authorId = a.Id})))
                 },
+                Summary = !String.IsNullOrWhiteSpace(b.Comment?.Text)
+                    ? new TextSyndicationContent(b.Comment.Text, TextSyndicationContentKind.Html)
+                    : null,
                 Links =
                 {
                     new SyndicationLink
@@ -223,32 +217,54 @@ public class OpdsController : ControllerBase
             }
         };
 
-        var byAuthor = new SyndicationItem
+
+        var feed = new SyndicationFeed(new[]
         {
-            Title = new TextSyndicationContent("By Author"),
-            Content = new TextSyndicationContent("Books sorted by Author."),
+            allBooks, newBooks
+        }.Concat(Groupings.Select(k => new SyndicationItem
+        {
+            Title = new TextSyndicationContent(k.Value.title),
             LastUpdatedTime = lastUpdate,
             Links =
             {
                 new SyndicationLink
                 {
-                    Title = "By Author",
+                    Title = k.Value.title,
                     MediaType = OpdsConstants.FeedTypes.Acquisition,
-                    Uri = Url.Action(nameof(ListingByAuthor), new {sort = "new"})!.AsUri(),
-                    RelationshipType = OpdsConstants.Relations.New
+                    Uri = Url.Action(nameof(ListingByGrouping), new {k.Value.grouping})!.AsUri(),
+                    RelationshipType = OpdsConstants.Relations.Subsection
+                }
+            }
+        })))
+        {
+            Links =
+            {
+                new SyndicationLink
+                {
+                    Uri = Url.Action(nameof(SearchSpec)).AsUri(),
+                    MediaType = OpdsConstants.FeedTypes.Search,
+                    RelationshipType = OpdsConstants.Relations.Search
                 }
             }
         };
 
-        WriteAtomToResponse(new SyndicationFeed(new[] {allBooks, newBooks, byAuthor}));
+        WriteAtomToResponse(feed);
     }
 
-    [HttpGet("by-author")]
-    public async Task ListingByAuthor()
+    private static readonly IDictionary<string, GroupingDefinition> Groupings = new[]
+    {
+        new GroupingDefinition("author", "Books by Author", f => f.Authors, a=> new {authorId = a.Id}),
+        new GroupingDefinition("tag", "Books by Popular Tags", f => f.Tags.Where(k=>k.Books.Count() >= 10), t=> new {tag = t.Name}),
+        new GroupingDefinition("unique-tag", "Books by Unique Tags", f => f.Tags.Where(k=>k.Books.Count() < 10), t=> new {tag = t.Name}),
+    }.ToImmutableDictionary(l => l.grouping, v => v);
+
+    [HttpGet("by-{grouping}")]
+    public async Task ListingByGrouping(string grouping)
     {
         await using var db = _dbFactory();
-
-        var groups = await db.Authors.Select(k => new {k.Name, k.Id, Count = k.Books.Count()}).ToListAsync();
+        var group = Groupings[grouping.ToLower()];
+        var groups = await group.baseSelector(db).Select(k => new GroupingSummary(k.Name, k.Id, k.Books.Count()))
+            .ToListAsync();
 
         var feed = new SyndicationFeed(groups.Select(f =>
             new SyndicationItem
@@ -260,13 +276,13 @@ public class OpdsController : ControllerBase
                     {
                         Title = $"{f.Name} ({f.Count} works)",
                         MediaType = OpdsConstants.FeedTypes.Acquisition,
-                        Uri = Url.Action(nameof(Books), new {authorid = f.Id})!.AsUri(),
+                        Uri = Url.Action(nameof(Books), group.feedFilterSelector(f))!.AsUri(),
                         RelationshipType = OpdsConstants.Relations.Subsection
                     }
                 }
             }))
         {
-            Title = new TextSyndicationContent("Books by Author")
+            Title = new TextSyndicationContent($"Books by {grouping}")
         };
 
         WriteAtomToResponse(feed);
@@ -336,3 +352,8 @@ public class OpdsController : ControllerBase
         await streamWriter.FlushAsync();
     }
 }
+
+record GroupingDefinition(string grouping, string title,
+    Func<CalibreDbContext, IQueryable<IBookGrouping>> baseSelector, Func<GroupingSummary, object> feedFilterSelector);
+    
+record GroupingSummary(string Name, long Id, int Count);

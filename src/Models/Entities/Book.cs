@@ -36,4 +36,8 @@ public partial class Book
     /// The library content (list of ebooks stored on disk).
     /// </summary>
     public List<LibraryContent> LibraryContents = new ();
+    
+    public Comment? Comment { get; set; }
+
+    public List<Tag> Tags { get; set; } = new();
 }

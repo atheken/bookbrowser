@@ -171,6 +171,12 @@ public partial class CalibreDbContext : DbContext
             entity.HasMany<Author>(f=>f.Authors)
                 .WithMany(k=>k.Books)
                 .UsingEntity<BookAuthorLink>();
+
+            entity.HasOne<Comment>().WithOne().HasPrincipalKey<Comment>(l=>l.BookId);
+
+            entity.HasMany<Tag>(l => l.Tags)
+                .WithMany(k => k.Books)
+                .UsingEntity<BooksTagsLink>();
         });
         
         modelBuilder.Entity<BookAuthorLink>(entity =>
@@ -276,31 +282,31 @@ public partial class CalibreDbContext : DbContext
         {
             entity.ToTable("books_tags_link");
 
-            entity.HasIndex(e => new { e.Book, e.Tag }, "IX_books_tags_link_book_tag").IsUnique();
+            entity.HasIndex(e => new {Book = e.BookId, Tag = e.TagId }, "IX_books_tags_link_book_tag").IsUnique();
 
-            entity.HasIndex(e => e.Tag, "books_tags_link_aidx");
+            entity.HasIndex(e => e.TagId, "books_tags_link_aidx");
 
-            entity.HasIndex(e => e.Book, "books_tags_link_bidx");
+            entity.HasIndex(e => e.BookId, "books_tags_link_bidx");
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
                 .HasColumnName("id");
-            entity.Property(e => e.Book).HasColumnName("book");
-            entity.Property(e => e.Tag).HasColumnName("tag");
+            entity.Property(e => e.BookId).HasColumnName("book");
+            entity.Property(e => e.TagId).HasColumnName("tag");
         });
 
         modelBuilder.Entity<Comment>(entity =>
         {
             entity.ToTable("comments");
 
-            entity.HasIndex(e => e.Book, "IX_comments_book").IsUnique();
+            entity.HasIndex(e => e.BookId, "IX_comments_book").IsUnique();
 
-            entity.HasIndex(e => e.Book, "comments_idx");
+            entity.HasIndex(e => e.BookId, "comments_idx");
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
                 .HasColumnName("id");
-            entity.Property(e => e.Book).HasColumnName("book");
+            entity.Property(e => e.BookId).HasColumnName("book");
             entity.Property(e => e.Text).HasColumnName("text");
         });
 
