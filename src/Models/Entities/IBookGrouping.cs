@@ -3,7 +3,7 @@ namespace BookBrowser.Models;
 /// <summary>
 /// A category by which books are grouped.
 /// </summary>
-public class IBookGrouping
+public interface IBookGrouping
 {
     public long Id { get; }
 

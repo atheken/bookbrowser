@@ -204,18 +204,18 @@ public partial class CalibreDbContext : DbContext
         {
             entity.ToTable("books_languages_link");
 
-            entity.HasIndex(e => new { e.Book, e.LangCode }, "IX_books_languages_link_book_lang_code").IsUnique();
+            entity.HasIndex(e => new {Book = e.BookId, LangCode = e.LanguageId }, "IX_books_languages_link_book_lang_code").IsUnique();
 
-            entity.HasIndex(e => e.LangCode, "books_languages_link_aidx");
+            entity.HasIndex(e => e.LanguageId, "books_languages_link_aidx");
 
-            entity.HasIndex(e => e.Book, "books_languages_link_bidx");
+            entity.HasIndex(e => e.BookId, "books_languages_link_bidx");
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
                 .HasColumnName("id");
-            entity.Property(e => e.Book).HasColumnName("book");
+            entity.Property(e => e.BookId).HasColumnName("book");
             entity.Property(e => e.ItemOrder).HasColumnName("item_order");
-            entity.Property(e => e.LangCode).HasColumnName("lang_code");
+            entity.Property(e => e.LanguageId).HasColumnName("lang_code");
         });
 
         modelBuilder.Entity<BooksPluginDatum>(entity =>
@@ -236,34 +236,34 @@ public partial class CalibreDbContext : DbContext
         {
             entity.ToTable("books_publishers_link");
 
-            entity.HasIndex(e => e.Book, "IX_books_publishers_link_book").IsUnique();
+            entity.HasIndex(e => e.BookId, "IX_books_publishers_link_book").IsUnique();
 
-            entity.HasIndex(e => e.Publisher, "books_publishers_link_aidx");
+            entity.HasIndex(e => e.PublisherId, "books_publishers_link_aidx");
 
-            entity.HasIndex(e => e.Book, "books_publishers_link_bidx");
+            entity.HasIndex(e => e.BookId, "books_publishers_link_bidx");
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
                 .HasColumnName("id");
-            entity.Property(e => e.Book).HasColumnName("book");
-            entity.Property(e => e.Publisher).HasColumnName("publisher");
+            entity.Property(e => e.BookId).HasColumnName("book");
+            entity.Property(e => e.PublisherId).HasColumnName("publisher");
         });
 
         modelBuilder.Entity<BooksRatingsLink>(entity =>
         {
             entity.ToTable("books_ratings_link");
 
-            entity.HasIndex(e => new { e.Book, e.Rating }, "IX_books_ratings_link_book_rating").IsUnique();
+            entity.HasIndex(e => new {Book = e.BookId, Rating = e.RatingId }, "IX_books_ratings_link_book_rating").IsUnique();
 
-            entity.HasIndex(e => e.Rating, "books_ratings_link_aidx");
+            entity.HasIndex(e => e.RatingId, "books_ratings_link_aidx");
 
-            entity.HasIndex(e => e.Book, "books_ratings_link_bidx");
+            entity.HasIndex(e => e.BookId, "books_ratings_link_bidx");
 
             entity.Property(e => e.Id)
                 .ValueGeneratedNever()
                 .HasColumnName("id");
-            entity.Property(e => e.Book).HasColumnName("book");
-            entity.Property(e => e.Rating).HasColumnName("rating");
+            entity.Property(e => e.BookId).HasColumnName("book");
+            entity.Property(e => e.RatingId).HasColumnName("rating");
         });
 
         modelBuilder.Entity<BooksSeriesLink>(entity =>
@@ -432,6 +432,9 @@ public partial class CalibreDbContext : DbContext
             entity.Property(e => e.Link)
                 .HasDefaultValueSql("''")
                 .HasColumnName("link");
+
+            entity.HasMany<Book>(k => k.Books).WithMany().UsingEntity<BooksLanguagesLink>();
+            
         });
 
         modelBuilder.Entity<LastReadPosition>(entity =>
@@ -507,6 +510,8 @@ public partial class CalibreDbContext : DbContext
                 .HasColumnName("link");
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.Sort).HasColumnName("sort");
+
+            entity.HasMany<Book>(k => k.Books).WithMany().UsingEntity<BooksPublishersLink>();
         });
 
         modelBuilder.Entity<Rating>(entity =>
@@ -522,6 +527,8 @@ public partial class CalibreDbContext : DbContext
                 .HasDefaultValueSql("''")
                 .HasColumnName("link");
             entity.Property(e => e.RatingValue).HasColumnName("rating");
+
+            entity.HasMany<Book>(r => r.Books).WithMany().UsingEntity<BooksRatingsLink>();
         });
 
         modelBuilder.Entity<Series>(entity =>
