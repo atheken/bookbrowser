@@ -21,7 +21,8 @@
 				"svelte.svelte-vscode",
 				"ms-vscode.vscode-typescript-next",
 				"bradlc.vscode-tailwindcss",
-				"ms-dotnettools.csharp"
+				"ms-dotnettools.csharp",
+				"ms-vscode.makefile-tools"
 			]
 		}
 	}
